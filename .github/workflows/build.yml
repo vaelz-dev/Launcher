@@ -62,7 +62,7 @@ jobs:
       - name: Installe les outils AppImage
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget file
+          sudo apt-get install -y wget file libfuse2
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
           sudo mv appimagetool /usr/local/bin/appimagetool
@@ -110,7 +110,7 @@ jobs:
       - name: Construit l'AppImage
         run: |
           mkdir -p output
-          ARCH=x86_64 appimagetool AppDir output/LauncherEclypsia.AppImage
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 appimagetool AppDir output/LauncherEclypsia.AppImage
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
