@@ -1,0 +1,143 @@
+name: Build LauncherEclypsia (Mac + Linux)
+
+on:
+  push:
+    branches: [ main, master ]
+  release:
+    types: [ created ]
+
+jobs:
+
+  # ============================================================
+  #  MAC — .dmg via jpackage
+  # ============================================================
+  build-mac:
+    runs-on: macos-latest
+    name: Build for Mac
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (pour jpackage uniquement)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Package avec jpackage
+        run: |
+          jpackage \
+            --input LauncherGit/ \
+            --main-jar LauncherEclypsia-1.0.1.jar \
+            --name LauncherEclypsia \
+            --app-version 1.0.1 \
+            --vendor "Eclypsia" \
+            --icon LauncherGit/assets/icon.icns \
+            --type dmg \
+            --dest output/
+
+      - name: Renomme le fichier
+        run: |
+          cd output
+          for f in *.dmg; do mv "$f" "LauncherEclypsia.dmg"; done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Mac
+          path: output/LauncherEclypsia.dmg
+
+  # ============================================================
+  #  LINUX — .AppImage (universel, toutes distros)
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    name: Build for Linux (AppImage)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Installe les outils AppImage
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget file
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/appimagetool
+
+      - name: Télécharge JRE 8u312-b07
+        run: |
+          wget -q https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u312-b07/OpenJDK8U-jre_x64_linux_hotspot_8u312b07.tar.gz
+          tar -xzf OpenJDK8U-jre_x64_linux_hotspot_8u312b07.tar.gz
+          mv jdk8u312-b07-jre bundled-jre
+
+      - name: Construit la structure AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib/jre
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp -r bundled-jre/* AppDir/usr/lib/jre/
+          cp LauncherGit/LauncherEclypsia-1.0.1.jar AppDir/usr/bin/
+          cp LauncherGit/assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/launchereclypsia.png
+          cp LauncherGit/assets/icon.png AppDir/launchereclypsia.png
+
+          cat > AppDir/usr/bin/launchereclypsia.sh << 'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+          "$SCRIPT_DIR/../lib/jre/bin/java" -jar "$SCRIPT_DIR/LauncherEclypsia-1.0.1.jar"
+          EOF
+          chmod +x AppDir/usr/bin/launchereclypsia.sh
+
+          cat > AppDir/launchereclypsia.desktop << 'EOF'
+          [Desktop Entry]
+          Name=LauncherEclypsia
+          Exec=launchereclypsia.sh
+          Icon=launchereclypsia
+          Type=Application
+          Categories=Game;
+          EOF
+
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          APPDIR="$(dirname "$(readlink -f "$0")")"
+          exec "$APPDIR/usr/bin/launchereclypsia.sh"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Construit l'AppImage
+        run: |
+          mkdir -p output
+          ARCH=x86_64 appimagetool AppDir output/LauncherEclypsia.AppImage
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Linux
+          path: output/LauncherEclypsia.AppImage
+
+  # ============================================================
+  #  RELEASE — Attache Mac + Linux à une GitHub Release
+  # ============================================================
+  release:
+    needs: [ build-mac, build-linux ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    name: Attach to GitHub Release
+
+    steps:
+      - name: Télécharge les artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Attache à la release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/LauncherEclypsia-Mac/LauncherEclypsia.dmg
+            artifacts/LauncherEclypsia-Linux/LauncherEclypsia.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
