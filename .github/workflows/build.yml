@@ -28,12 +28,12 @@ jobs:
       - name: Package avec jpackage
         run: |
           jpackage \
-            --input LauncherGit/ \
+            --input . \
             --main-jar LauncherEclypsia-1.0.1.jar \
             --name LauncherEclypsia \
             --app-version 1.0.1 \
             --vendor "Eclypsia" \
-            --icon LauncherGit/assets/icon.icns \
+            --icon assets/icon.icns \
             --type dmg \
             --dest output/
 
@@ -80,9 +80,9 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
           cp -r bundled-jre/* AppDir/usr/lib/jre/
-          cp LauncherGit/LauncherEclypsia-1.0.1.jar AppDir/usr/bin/
-          cp LauncherGit/assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/launchereclypsia.png
-          cp LauncherGit/assets/icon.png AppDir/launchereclypsia.png
+          cp LauncherEclypsia-1.0.1.jar AppDir/usr/bin/
+          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/launchereclypsia.png
+          cp assets/icon.png AppDir/launchereclypsia.png
 
           cat > AppDir/usr/bin/launchereclypsia.sh << 'EOF'
           #!/bin/bash
