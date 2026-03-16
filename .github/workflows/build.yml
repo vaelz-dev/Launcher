@@ -1,4 +1,4 @@
-name: Build LauncherEclypsia (Mac + Linux)
+name: Build LauncherEclypsia (Windows + Mac + Linux)
 
 on:
   push:
@@ -9,23 +9,113 @@ on:
 jobs:
 
   # ============================================================
-  #  MAC — .dmg via jpackage
+  #  WINDOWS amd64 — .exe via jpackage
   # ============================================================
-  build-mac:
-    runs-on: macos-latest
-    name: Build for Mac
+  build-windows-amd64:
+    runs-on: windows-latest
+    name: Build for Windows (amd64)
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17 (pour jpackage uniquement)
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Package avec jpackage
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: choco install wixtoolset -y
+
+      - name: Package via jpackage
+        shell: pwsh
+        run: |
+          jpackage `
+            --input . `
+            --main-jar LauncherEclypsia-1.0.1.jar `
+            --name LauncherEclypsia `
+            --app-version 1.0.1 `
+            --vendor "Eclypsia" `
+            --icon assets/icon.ico `
+            --type exe `
+            --dest output/
+
+      - name: Rename
+        shell: pwsh
+        run: |
+          Get-ChildItem output/*.exe | Rename-Item -NewName "LauncherEclypsia-windows-amd64.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Windows-amd64
+          path: output/LauncherEclypsia-windows-amd64.exe
+
+  # ============================================================
+  #  WINDOWS arm64 — .exe via jpackage
+  # ============================================================
+  build-windows-arm64:
+    runs-on: windows-11-arm
+    name: Build for Windows (arm64)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: choco install wixtoolset -y
+
+      - name: Package via jpackage
+        shell: pwsh
+        run: |
+          jpackage `
+            --input . `
+            --main-jar LauncherEclypsia-1.0.1.jar `
+            --name LauncherEclypsia `
+            --app-version 1.0.1 `
+            --vendor "Eclypsia" `
+            --icon assets/icon.ico `
+            --type exe `
+            --dest output/
+
+      - name: Rename
+        shell: pwsh
+        run: |
+          Get-ChildItem output/*.exe | Rename-Item -NewName "LauncherEclypsia-windows-arm64.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Windows-arm64
+          path: output/LauncherEclypsia-windows-arm64.exe
+
+  # ============================================================
+  #  MAC amd64 (Intel) — .dmg via jpackage
+  # ============================================================
+  build-mac-amd64:
+    runs-on: macos-13
+    name: Build for Mac (amd64)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Package via jpackage
         run: |
           jpackage \
             --input . \
@@ -37,23 +127,59 @@ jobs:
             --type dmg \
             --dest output/
 
-      - name: Renomme le fichier
-        run: |
-          cd output
-          for f in *.dmg; do mv "$f" "LauncherEclypsia.dmg"; done
+      - name: Rename
+        run: mv output/*.dmg output/LauncherEclypsia-mac-amd64.dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LauncherEclypsia-Mac
-          path: output/LauncherEclypsia.dmg
+          name: LauncherEclypsia-Mac-amd64
+          path: output/LauncherEclypsia-mac-amd64.dmg
 
   # ============================================================
-  #  LINUX — .AppImage (universel, toutes distros)
+  #  MAC arm64 (Apple Silicon) — .dmg via jpackage
   # ============================================================
-  build-linux:
+  build-mac-arm64:
+    runs-on: macos-latest
+    name: Build for Mac (arm64)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Package via jpackage
+        run: |
+          jpackage \
+            --input . \
+            --main-jar LauncherEclypsia-1.0.1.jar \
+            --name LauncherEclypsia \
+            --app-version 1.0.1 \
+            --vendor "Eclypsia" \
+            --icon assets/icon.icns \
+            --type dmg \
+            --dest output/
+
+      - name: Rename
+        run: mv output/*.dmg output/LauncherEclypsia-mac-arm64.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Mac-arm64
+          path: output/LauncherEclypsia-mac-arm64.dmg
+
+  # ============================================================
+  #  LINUX amd64 — AppImage
+  # ============================================================
+  build-linux-amd64:
     runs-on: ubuntu-latest
-    name: Build for Linux (AppImage)
+    name: Build for Linux (amd64)
 
     steps:
       - name: Checkout code
@@ -67,7 +193,7 @@ jobs:
           chmod +x appimagetool
           sudo mv appimagetool /usr/local/bin/appimagetool
 
-      - name: Télécharge JRE 8u312-b07
+      - name: Télécharge JRE 8 (x64)
         run: |
           wget -q https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u312-b07/OpenJDK8U-jre_x64_linux_hotspot_8u312b07.tar.gz
           tar -xzf OpenJDK8U-jre_x64_linux_hotspot_8u312b07.tar.gz
@@ -110,25 +236,101 @@ jobs:
       - name: Construit l'AppImage
         run: |
           mkdir -p output
-          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 appimagetool AppDir output/LauncherEclypsia.AppImage
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 appimagetool AppDir output/LauncherEclypsia-linux-amd64.AppImage
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LauncherEclypsia-Linux
-          path: output/LauncherEclypsia.AppImage
+          name: LauncherEclypsia-Linux-amd64
+          path: output/LauncherEclypsia-linux-amd64.AppImage
 
   # ============================================================
-  #  RELEASE — Attache Mac + Linux à une GitHub Release
+  #  LINUX arm64 — AppImage
+  # ============================================================
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    name: Build for Linux (arm64)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Installe les outils AppImage
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget file libfuse2
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-aarch64.AppImage -O appimagetool
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/appimagetool
+
+      - name: Télécharge JRE 8 (aarch64)
+        run: |
+          wget -q https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u312-b07/OpenJDK8U-jre_aarch64_linux_hotspot_8u312b07.tar.gz
+          tar -xzf OpenJDK8U-jre_aarch64_linux_hotspot_8u312b07.tar.gz
+          mv jdk8u312-b07-jre bundled-jre
+
+      - name: Construit la structure AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib/jre
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp -r bundled-jre/* AppDir/usr/lib/jre/
+          cp LauncherEclypsia-1.0.1.jar AppDir/usr/bin/
+          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/launchereclypsia.png
+          cp assets/icon.png AppDir/launchereclypsia.png
+
+          cat > AppDir/usr/bin/launchereclypsia.sh << 'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+          "$SCRIPT_DIR/../lib/jre/bin/java" -jar "$SCRIPT_DIR/LauncherEclypsia-1.0.1.jar"
+          EOF
+          chmod +x AppDir/usr/bin/launchereclypsia.sh
+
+          cat > AppDir/launchereclypsia.desktop << 'EOF'
+          [Desktop Entry]
+          Name=LauncherEclypsia
+          Exec=launchereclypsia.sh
+          Icon=launchereclypsia
+          Type=Application
+          Categories=Game;
+          EOF
+
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          APPDIR="$(dirname "$(readlink -f "$0")")"
+          exec "$APPDIR/usr/bin/launchereclypsia.sh"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Construit l'AppImage
+        run: |
+          mkdir -p output
+          ARCH=aarch64 APPIMAGE_EXTRACT_AND_RUN=1 appimagetool AppDir output/LauncherEclypsia-linux-arm64.AppImage
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Linux-arm64
+          path: output/LauncherEclypsia-linux-arm64.AppImage
+
+  # ============================================================
+  #  RELEASE — Attache tout à la GitHub Release
   # ============================================================
   release:
-    needs: [ build-mac, build-linux ]
+    needs:
+      - build-windows-amd64
+      - build-windows-arm64
+      - build-mac-amd64
+      - build-mac-arm64
+      - build-linux-amd64
+      - build-linux-arm64
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     name: Attach to GitHub Release
 
     steps:
-      - name: Télécharge les artifacts
+      - name: Télécharge tous les artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
@@ -137,7 +339,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/LauncherEclypsia-Mac/LauncherEclypsia.dmg
-            artifacts/LauncherEclypsia-Linux/LauncherEclypsia.AppImage
+            artifacts/LauncherEclypsia-Windows-amd64/LauncherEclypsia-windows-amd64.exe
+            artifacts/LauncherEclypsia-Windows-arm64/LauncherEclypsia-windows-arm64.exe
+            artifacts/LauncherEclypsia-Mac-amd64/LauncherEclypsia-mac-amd64.dmg
+            artifacts/LauncherEclypsia-Mac-arm64/LauncherEclypsia-mac-arm64.dmg
+            artifacts/LauncherEclypsia-Linux-amd64/LauncherEclypsia-linux-amd64.AppImage
+            artifacts/LauncherEclypsia-Linux-arm64/LauncherEclypsia-linux-arm64.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
