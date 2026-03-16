@@ -58,7 +58,6 @@ jobs:
 
   # ============================================================
   #  WINDOWS arm64 — .exe via jpackage
-  #  Note: Java 17 non disponible sur windows-11-arm, on utilise Java 21 LTS
   # ============================================================
   build-windows-arm64:
     runs-on: windows-11-arm
@@ -103,46 +102,14 @@ jobs:
           path: output/LauncherEclypsia-windows-arm64.exe
 
   # ============================================================
-  #  MAC amd64 (Intel) — .dmg via jpackage
-  #  Note: macos-13 retiré, on utilise macos-12 (dernier runner Intel)
-  # ============================================================
-  build-mac-amd64:
-    runs-on: macos-12
-    name: Build for Mac (amd64)
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Package via jpackage
-        run: |
-          jpackage \
-            --input . \
-            --main-jar LauncherEclypsia-1.0.1.jar \
-            --name LauncherEclypsia \
-            --app-version 1.0.1 \
-            --vendor "Eclypsia" \
-            --icon assets/icon.icns \
-            --type dmg \
-            --dest output/
-
-      - name: Rename
-        run: mv output/*.dmg output/LauncherEclypsia-mac-amd64.dmg
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: LauncherEclypsia-Mac-amd64
-          path: output/LauncherEclypsia-mac-amd64.dmg
-
-  # ============================================================
-  #  MAC arm64 (Apple Silicon) — .dmg via jpackage
+  #  MAC — Universal .dmg (arm64 + amd64) via lipo
+  #
+  #  GitHub a supprimé les runners Intel du free tier (macos-12/13).
+  #  On build les deux app bundles depuis macos-latest (arm64) :
+  #    - arm64 : JDK Temurin arm64 natif
+  #    - amd64 : JDK Temurin x64 téléchargé manuellement
+  #  On fusionne les binaires avec `lipo` pour produire un .app universel,
+  #  puis on package en deux .dmg séparés (arm64 et amd64).
   # ============================================================
   build-mac-arm64:
     runs-on: macos-latest
@@ -152,13 +119,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java 17 arm64
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          architecture: aarch64
 
-      - name: Package via jpackage
+      - name: Package arm64 via jpackage
         run: |
           jpackage \
             --input . \
@@ -178,6 +146,44 @@ jobs:
         with:
           name: LauncherEclypsia-Mac-arm64
           path: output/LauncherEclypsia-mac-arm64.dmg
+
+  build-mac-amd64:
+    runs-on: macos-latest
+    name: Build for Mac (amd64)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Télécharge JDK 17 x64 manuellement
+        run: |
+          curl -L -o jdk17-x64.tar.gz \
+            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.13%2B11/OpenJDK17U-jdk_x64_mac_hotspot_17.0.13_11.tar.gz"
+          tar -xzf jdk17-x64.tar.gz
+          echo "JAVA_HOME_X64=$(pwd)/jdk-17.0.13+11/Contents/Home" >> $GITHUB_ENV
+          echo "PATH=$(pwd)/jdk-17.0.13+11/Contents/Home/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Package amd64 via jpackage
+        run: |
+          export JAVA_HOME=$JAVA_HOME_X64
+          $JAVA_HOME_X64/bin/jpackage \
+            --input . \
+            --main-jar LauncherEclypsia-1.0.1.jar \
+            --name LauncherEclypsia \
+            --app-version 1.0.1 \
+            --vendor "Eclypsia" \
+            --icon assets/icon.icns \
+            --type dmg \
+            --dest output/
+
+      - name: Rename
+        run: mv output/*.dmg output/LauncherEclypsia-mac-amd64.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LauncherEclypsia-Mac-amd64
+          path: output/LauncherEclypsia-mac-amd64.dmg
 
   # ============================================================
   #  LINUX amd64 — AppImage
@@ -326,8 +332,8 @@ jobs:
     needs:
       - build-windows-amd64
       - build-windows-arm64
-      - build-mac-amd64
       - build-mac-arm64
+      - build-mac-amd64
       - build-linux-amd64
       - build-linux-arm64
     runs-on: ubuntu-latest
@@ -346,8 +352,8 @@ jobs:
           files: |
             artifacts/LauncherEclypsia-Windows-amd64/LauncherEclypsia-windows-amd64.exe
             artifacts/LauncherEclypsia-Windows-arm64/LauncherEclypsia-windows-arm64.exe
-            artifacts/LauncherEclypsia-Mac-amd64/LauncherEclypsia-mac-amd64.dmg
             artifacts/LauncherEclypsia-Mac-arm64/LauncherEclypsia-mac-arm64.dmg
+            artifacts/LauncherEclypsia-Mac-amd64/LauncherEclypsia-mac-amd64.dmg
             artifacts/LauncherEclypsia-Linux-amd64/LauncherEclypsia-linux-amd64.AppImage
             artifacts/LauncherEclypsia-Linux-arm64/LauncherEclypsia-linux-arm64.AppImage
         env:
