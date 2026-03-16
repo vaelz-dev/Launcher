@@ -6,6 +6,9 @@ on:
   release:
     types: [ created ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   # ============================================================
@@ -55,6 +58,7 @@ jobs:
 
   # ============================================================
   #  WINDOWS arm64 — .exe via jpackage
+  #  Note: Java 17 non disponible sur windows-11-arm, on utilise Java 21 LTS
   # ============================================================
   build-windows-arm64:
     runs-on: windows-11-arm
@@ -64,10 +68,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Install WiX Toolset
@@ -100,9 +104,10 @@ jobs:
 
   # ============================================================
   #  MAC amd64 (Intel) — .dmg via jpackage
+  #  Note: macos-13 retiré, on utilise macos-12 (dernier runner Intel)
   # ============================================================
   build-mac-amd64:
-    runs-on: macos-13
+    runs-on: macos-12
     name: Build for Mac (amd64)
 
     steps:
